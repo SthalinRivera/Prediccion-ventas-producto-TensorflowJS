@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gráfico de Ventas</title>
+    <!-- Importar TensorFlow.js, Chart.js y adaptador de fechas para Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-900 text-white font-sans flex flex-col items-center justify-center min-h-screen p-4">
+    <div class="w-full max-w-4xl bg-gray-800 p-6 rounded-lg shadow-lg">
+        <!-- Título -->
+        <h1 class="text-2xl font-bold mb-4 text-center">Predicción de Ventas por producto Utilizando TensorflowJs</h1>
+
+        <!-- Campo de entrada para la cantidad de meses a predecir -->
+        <div class="mb-4">
+            <label for="monthsToPredict" class="block text-lg font-medium mb-2">Número de meses a predecir:</label>
+            <input type="number" id="monthsToPredict" value="3" min="1" max="24"
+                class="w-full p-2 border border-gray-700 bg-gray-900 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">
+        </div>
+
+        <!-- Botón para generar los datos futuros -->
+        <button id="predictButton"
+            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-200">
+            Predecir
+        </button>
+
+        <!-- Lienzo donde se dibujará el gráfico -->
+        <div class="mt-6">
+            <canvas id="salesChart" width="400" height="200"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Datos de ejemplo de ventas de productos en diferentes meses
+        var salesData = {
+            "2023-01": { "Producto A": 30, "Producto B": 15, "Producto C": 12, "Producto D": 18, "Producto E": 14, "Producto F": 20 },
+            "2023-02": { "Producto A": 22, "Producto B": 18, "Producto C": 15, "Producto D": 20, "Producto E": 16, "Producto F": 22 },
+            "2023-03": { "Producto A": 15, "Producto B": 22, "Producto C": 18, "Producto D": 24, "Producto E": 20, "Producto F": 25 },
+            "2023-04": { "Producto A": 20, "Producto B": 25, "Producto C": 22, "Producto D": 28, "Producto E": 24, "Producto F": 30 },
+            "2023-05": { "Producto A": 22, "Producto B": 28, "Producto C": 25, "Producto D": 30, "Producto E": 26, "Producto F": 32 },
+            "2023-06": { "Producto A": 25, "Producto B": 30, "Producto C": 28, "Producto D": 32, "Producto E": 29, "Producto F": 35 },
+            "2023-07": { "Producto A": 28, "Producto B": 35, "Producto C": 32, "Producto D": 38, "Producto E": 34, "Producto F": 40 },
+            "2023-08": { "Producto A": 20, "Producto B": 38, "Producto C": 35, "Producto D": 40, "Producto E": 36, "Producto F": 42 },
+            "2023-09": { "Producto A": 35, "Producto B": 40, "Producto C": 38, "Producto D": 42, "Producto E": 40, "Producto F": 45 },
+            "2023-10": { "Producto A": 20, "Producto B": 45, "Producto C": 42, "Producto D": 48, "Producto E": 45, "Producto F": 50 }
+        };
+
+        // Función para preparar los datos para Chart.js
+        function prepareData(data) {
+            // Obtener etiquetas de meses ordenadas
+            const labels = Object.keys(data).sort();
+            // Obtener una lista única de productos presentes en los datos
+            const products = [...new Set(labels.flatMap(month => Object.keys(data[month])))];
+
+            // Crear un conjunto de datos para cada producto, con sus ventas por mes
+            const dataset = products.map(product => {
+                return {
+                    label: product, // Etiqueta del producto usando el nombre del producto
+                    data: labels.map(month => data[month][product] || 0), // Ventas del producto por mes
+                    fill: false, // No rellenar el área bajo la línea
+                    borderColor: getRandomColor(), // Color de la línea
+                    tension: 0.1 // Curvatura de la línea
+                };
+            });
+
+            // Retornar etiquetas y conjunto de datos
+            return { labels, dataset };
+        }
+
+        // Función para generar un color aleatorio en formato hexadecimal
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        // Crear el gráfico usando Chart.js
+        const ctx = document.getElementById('salesChart').getContext('2d');
+        let salesChart;
+
+        function createChart(labels, dataset) {
+            if (salesChart) {
+                salesChart.destroy(); // Destruir el gráfico anterior si existe
+            }
+
+            salesChart = new Chart(ctx, {
+                type: 'line', // Tipo de gráfico de líneas
+                data: {
+                    labels: labels, // Etiquetas de los meses
+                    datasets: dataset // Conjunto de datos de ventas
+                },
+                options: {
+                    scales: {
+                        x: {
+                            type: 'time', // Eje X basado en tiempo
+                            time: {
+                                unit: 'month' // Mostrar unidades de tiempo por mes
+                            },
+                            title: {
+                                display: true,
+                                text: 'Mes' // Etiqueta del eje X
+                            }
+                        },
+                        y: {
+                            ticks: {
+                                callback: function (value) {
+                                    return Math.round(value); // Mostrar valores enteros en el eje Y
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Ventas' // Etiqueta del eje Y
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                // Personalizar el tooltip para mostrar producto y ventas
+                                label: function (context) {
+                                    return `Producto: ${context.dataset.label}, Ventas: ${Math.round(context.raw)}`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Función para generar datos futuros usando TensorFlow.js
+        async function generateFutureData() {
+            const monthsToPredict = parseInt(document.getElementById('monthsToPredict').value, 10);
+            if (isNaN(monthsToPredict) || monthsToPredict <= 0) {
+                alert('Por favor, ingrese un número válido de meses.');
+                return;
+            }
+
+            // Preparar los datos para el modelo
+            const { labels, dataset } = prepareData(salesData);
+
+            // Crear un modelo secuencial con varias capas densas y una capa de dropout
+            const model = tf.sequential();
+            model.add(tf.layers.dense({ units: 128, inputShape: [1], activation: 'relu' }));
+            model.add(tf.layers.dense({ units: 128, activation: 'relu' }));
+            model.add(tf.layers.dropout({ rate: 0.2 }));
+            model.add(tf.layers.dense({ units: 64, activation: 'relu' }));
+            model.add(tf.layers.dense({ units: dataset.length }));
+
+            // Compilar el modelo con optimizador Adam y función de pérdida de error cuadrático medio
+            model.compile({ optimizer: tf.train.adam(), loss: 'meanSquaredError' });
+
+            // Preparar los datos de entrada (X) y salida (Y) para el modelo
+            const xs = tf.tensor2d(labels.map((_, i) => [i]), [labels.length, 1]);
+            const ys = tf.tensor2d(labels.map((_, i) => dataset.map(d => d.data[i] || 0)), [labels.length, dataset.length]);
+
+            // Entrenar el modelo con los datos de entrenamiento y validación
+            await model.fit(xs, ys, {
+                epochs: 2000, // Número de épocas (iteraciones de entrenamiento)
+                validationSplit: 0.2, // Usar el 20% de los datos para validación
+                callbacks: tf.callbacks.earlyStopping({ monitor: 'val_loss', patience: 50 }) // Parar si no mejora
+            });
+
+            // Generar datos futuros y realizar predicciones
+            const futureX = tf.tensor2d([...Array(monthsToPredict).keys()].map(i => [i + labels.length]), [monthsToPredict, 1]);
+            const predictions = model.predict(futureX);
+
+            // Convertir las predicciones a un array y actualizar el gráfico
+            predictions.array().then(preds => {
+                // Crear etiquetas de meses futuros
+                const futureLabels = Array.from({ length: monthsToPredict }, (_, i) => {
+                    const date = new Date(labels[labels.length - 1]);
+                    date.setMonth(date.getMonth() + i + 1);
+                    return date.toISOString().substring(0, 7);
+                });
+
+                // Crear un nuevo conjunto de datos con las predicciones
+                const futureDataset = dataset.map((d, i) => ({
+                    ...d,
+                    data: [...d.data, ...preds.map(p => Math.round(p[i]))] // Redondear predicciones a enteros
+                }));
+
+                // Actualizar el gráfico con las etiquetas y datos futuros
+                createChart([...labels, ...futureLabels], futureDataset);
+            });
+        }
+
+        // Evento de clic en el botón para generar los datos futuros
+        document.getElementById('predictButton').addEventListener('click', generateFutureData);
+
+        // Inicializar el gráfico con los datos actuales
+        const { labels, dataset } = prepareData(salesData);
+        createChart(labels, dataset);
+    </script>
+</body>
+
+</html>
